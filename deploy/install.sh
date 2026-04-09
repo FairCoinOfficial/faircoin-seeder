@@ -42,6 +42,13 @@ nameserver 1.1.1.1
 nameserver 8.8.8.8
 EOF
 
+log "Opening UFW for DNS (port 53 udp+tcp)"
+if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
+  ufw allow 53/udp comment "dnsseed"
+  ufw allow 53/tcp comment "dnsseed"
+  ufw reload
+fi
+
 log "Ensuring docker and git are installed"
 if ! command -v docker >/dev/null 2>&1; then
   export DEBIAN_FRONTEND=noninteractive
