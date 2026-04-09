@@ -1,0 +1,9 @@
+.git
+.gitignore
+*.o
+dnsseed
+dnsseed.dat
+dnsseed.dat.new
+dnsseed.dump
+dnsstats.log
+deploy/*.log

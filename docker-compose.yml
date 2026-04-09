@@ -1,0 +1,21 @@
+services:
+  dnsseed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: faircoin-seeder:latest
+    container_name: faircoin-seeder
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - dnsseed-data:/var/lib/dnsseed
+    command:
+      - -h
+      - ${SEED_HOST}
+      - -n
+      - ${NS_HOST}
+      - -m
+      - ${MBOX}
+
+volumes:
+  dnsseed-data:
