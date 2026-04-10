@@ -27,16 +27,19 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        bash \
         libssl3 \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /var/lib/dnsseed
 
 COPY --from=build /src/dnsseed /usr/local/bin/dnsseed
+COPY entrypoint-seeder.sh /usr/local/bin/entrypoint-seeder.sh
+RUN chmod +x /usr/local/bin/entrypoint-seeder.sh
 
 WORKDIR /var/lib/dnsseed
 
 EXPOSE 53/udp
 EXPOSE 53/tcp
 
-ENTRYPOINT ["/usr/local/bin/dnsseed"]
+ENTRYPOINT ["/usr/local/bin/entrypoint-seeder.sh"]

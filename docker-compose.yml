@@ -37,6 +37,8 @@ services:
     depends_on:
       faircoind:
         condition: service_started
+    environment:
+      - PEER_IPS=${PEER_IPS:-}
     volumes:
       - dnsseed-data:/var/lib/dnsseed
     command:
