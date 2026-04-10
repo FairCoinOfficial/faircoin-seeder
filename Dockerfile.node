@@ -1,62 +1,24 @@
 # syntax=docker/dockerfile:1.6
 
-# ---------- build stage ----------
-FROM ubuntu:22.04 AS build
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        libtool \
-        autotools-dev \
-        autoconf \
-        pkg-config \
-        libssl-dev \
-        libboost-all-dev \
-        libdb5.3-dev \
-        libdb5.3++-dev \
-        git \
-        ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /src
-
-RUN git clone --depth 1 --branch main \
-        https://github.com/FairCoinOfficial/FairCoin.git .
-
-RUN ./autogen.sh \
-    && ./configure \
-        --without-gui \
-        --without-miniupnpc \
-        --disable-tests \
-        --disable-bench \
-        --with-incompatible-bdb \
-    && make -j"$(nproc)"
-
-# ---------- runtime stage ----------
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV FAIRCOIN_VERSION=v3.0.3
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        libssl3 \
-        libboost-system1.74.0 \
-        libboost-filesystem1.74.0 \
-        libboost-thread1.74.0 \
-        libboost-chrono1.74.0 \
-        libboost-program-options1.74.0 \
-        libdb5.3 \
-        libdb5.3++ \
         ca-certificates \
+        curl \
     && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /data
+    && mkdir -p /data /opt/faircoin
 
-COPY --from=build /src/src/faircoind /usr/local/bin/faircoind
-COPY --from=build /src/src/faircoin-cli /usr/local/bin/faircoin-cli
+RUN curl -fsSL "https://github.com/FairCoinOfficial/FairCoin/releases/download/${FAIRCOIN_VERSION}/faircoin-${FAIRCOIN_VERSION}-linux-x86_64.tar.gz" \
+    | tar -xz -C /opt/faircoin --strip-components=1
+
+RUN ln -s /opt/faircoin/faircoind /usr/local/bin/faircoind \
+    && ln -s /opt/faircoin/faircoin-cli /usr/local/bin/faircoin-cli
 
 VOLUME /data
-EXPOSE 46372
+EXPOSE 46372 40405
 
 ENTRYPOINT ["faircoind", "-datadir=/data", "-printtoconsole"]
