@@ -1,4 +1,28 @@
 services:
+  faircoind:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    image: faircoin-node:latest
+    container_name: faircoin-node
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - faircoin-data:/data
+    command:
+      - -listen=1
+      - -server=1
+      - -rpcallowip=127.0.0.1
+      - -rpcbind=127.0.0.1
+      - -rpcuser=faircoinrpc
+      - -rpcpassword=faircoinrpc
+      - -maxconnections=64
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   dnsseed:
     build:
       context: .
@@ -7,6 +31,9 @@ services:
     container_name: faircoin-seeder
     restart: unless-stopped
     network_mode: host
+    depends_on:
+      faircoind:
+        condition: service_started
     volumes:
       - dnsseed-data:/var/lib/dnsseed
     command:
@@ -23,4 +50,5 @@ services:
         max-file: "3"
 
 volumes:
+  faircoin-data:
   dnsseed-data:
