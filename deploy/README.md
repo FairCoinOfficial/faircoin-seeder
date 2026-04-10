@@ -1,7 +1,11 @@
 # Deployment
 
-The seeder is deployed as a Docker container (`docker-compose.yml` at the repo
-root). Each host runs one container serving a single seed hostname.
+Each seed VPS runs two Docker containers:
+
+- **faircoin-node** -- full FairCoin node (`faircoind`) on port 46372 (P2P)
+  and port 40405 (RPC). Provides blockchain data and peers.
+- **faircoin-seeder** -- DNS seeder (`dnsseed`) on port 53. Crawls the
+  network and answers DNS queries with healthy peer addresses.
 
 ## Zero-config on DigitalOcean
 
@@ -16,11 +20,40 @@ sudo bash deploy/install.sh
 
 That's it. The script will:
 1. Stop `systemd-resolved` to free port 53
-2. Open firewall ports 53 (DNS) and 46372 (FairCoin P2P)
+2. Open firewall ports 53 (DNS), 46372 (P2P), and 40405 (RPC)
 3. Install Docker if missing
 4. Clone the repo and write `.env`
-5. Build and start the seeder container
+5. Build and start both containers (faircoind + dnsseed)
 6. Install a cron job that auto-updates from `main` every 5 minutes
+
+## Architecture
+
+```
+                     FairCoin Wallet
+                          |
+                    DNS query: seed1.fairco.in
+                          |
+                    Cloudflare NS delegation
+                          |
+              +-----------+-----------+
+              |                       |
+        vps1.fairco.in          vps2.fairco.in
+        146.190.235.89          104.248.207.35
+              |                       |
+     +--------+--------+    +--------+--------+
+     |  dnsseed (:53)  |    |  dnsseed (:53)  |
+     | faircoind(:46372|    | faircoind(:46372|
+     |          :40405)|    |          :40405)|
+     +-----------------+    +-----------------+
+              |                       |
+              +--- P2P connection ----+
+```
+
+Wallets query `seed1.fairco.in` via DNS, get peer IPs back, and connect
+directly to those peers on port 46372.
+
+The Explorer (`explorer.fairco.in`) connects to `seed1.fairco.in:40405`
+for RPC data (blocks, transactions, addresses).
 
 ## Layout
 
@@ -34,27 +67,32 @@ That's it. The script will:
 
 All are auto-detected on DigitalOcean. Override with env vars if needed.
 
-| Variable      | Example              | Purpose                                    |
-|---------------|----------------------|--------------------------------------------|
-| `SEED_HOST`   | `seed1.fairco.in`    | Hostname the DNS seeder answers queries for |
-| `NS_HOST`     | `vps1.fairco.in`     | Nameserver hostname reported in SOA records |
-| `MBOX`        | `admin.fairco.in`    | Contact mailbox reported in SOA records     |
+| Variable      | Default              | Purpose                                     |
+|---------------|----------------------|---------------------------------------------|
+| `SEED_HOST`   | (auto-detected)      | Hostname the DNS seeder answers queries for  |
+| `NS_HOST`     | (auto-detected)      | Nameserver hostname reported in SOA records  |
+| `MBOX`        | `admin.fairco.in`    | Contact mailbox reported in SOA records      |
+| `RPC_PORT`    | `40405`              | FairCoin RPC port                            |
+| `RPC_USER`    | `fair`               | FairCoin RPC username                        |
+| `RPC_PASS`    | `change_me`          | FairCoin RPC password                        |
 
 ## DNS configuration (Cloudflare)
 
 The `fairco.in` domain is managed in Cloudflare. Required records:
 
 ```
-vps1.fairco.in.   A   167.71.2.184       (DNS only, no proxy)
-vps2.fairco.in.   A   104.248.196.16     (DNS only, no proxy)
+vps1.fairco.in.       A   146.190.235.89     (DNS only, no proxy)
+vps2.fairco.in.       A   104.248.207.35     (DNS only, no proxy)
 
-seed1.fairco.in.  NS  vps1.fairco.in.
-seed2.fairco.in.  NS  vps2.fairco.in.
+seed1.fairco.in.      NS  vps1.fairco.in.
+seed2.fairco.in.      NS  vps2.fairco.in.
+
+explorer.fairco.in.   CNAME  faircoin-explorer-zbmjl.ondigitalocean.app  (proxied)
 ```
 
 The `NS` delegation makes DNS clients contact the `dnsseed` process on the
 droplet when they resolve `seedN.fairco.in`. Cloudflare proxy must be OFF
-for these records (grey cloud / DNS only).
+for the VPS and seed records (grey cloud / DNS only).
 
 ## Manual install on a non-DO host
 

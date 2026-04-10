@@ -78,13 +78,14 @@ nameserver 8.8.8.8
 EOF
 
 # ---------------------------------------------------------------------------
-# Firewall: allow DNS (port 53) and FairCoin P2P (port 46372)
+# Firewall: allow DNS (port 53), FairCoin P2P (port 46372), RPC (port 40405)
 # ---------------------------------------------------------------------------
 log "Configuring firewall rules"
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
-  ufw allow 53/udp  comment "dnsseed DNS" || true
-  ufw allow 53/tcp  comment "dnsseed DNS" || true
-  ufw allow 46372/tcp comment "faircoin P2P" || true
+  ufw allow 53/udp   comment "dnsseed DNS"   || true
+  ufw allow 53/tcp   comment "dnsseed DNS"   || true
+  ufw allow 46372/tcp comment "faircoin P2P"  || true
+  ufw allow 40405/tcp comment "faircoin RPC"  || true
   ufw reload
 fi
 
@@ -130,6 +131,9 @@ cat > "$INSTALL_DIR/.env" <<EOF
 SEED_HOST=$SEED_HOST
 NS_HOST=$NS_HOST
 MBOX=$MBOX
+RPC_PORT=${RPC_PORT:-40405}
+RPC_USER=${RPC_USER:-fair}
+RPC_PASS=${RPC_PASS:-change_me}
 REPO_BRANCH=$REPO_BRANCH
 INSTALL_DIR=$INSTALL_DIR
 EOF

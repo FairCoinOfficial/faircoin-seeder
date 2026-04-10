@@ -12,10 +12,11 @@ services:
     command:
       - -listen=1
       - -server=1
-      - -rpcallowip=127.0.0.1
-      - -rpcbind=127.0.0.1
-      - -rpcuser=faircoinrpc
-      - -rpcpassword=faircoinrpc
+      - -rpcbind=0.0.0.0
+      - -rpcallowip=0.0.0.0/0
+      - -rpcport=${RPC_PORT:-40405}
+      - -rpcuser=${RPC_USER:-fair}
+      - -rpcpassword=${RPC_PASS:-change_me}
       - -maxconnections=64
     logging:
       driver: json-file
