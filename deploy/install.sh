@@ -62,7 +62,21 @@ auto_detect_from_metadata || log "Not running on DigitalOcean (metadata unavaila
 : "${SEED_HOST:?SEED_HOST is required (set env var or run on a DO droplet named vpsN.fairco.in)}"
 : "${NS_HOST:?NS_HOST is required (set env var or run on a DO droplet named vpsN.fairco.in)}"
 
-log "Configuration: SEED_HOST=$SEED_HOST NS_HOST=$NS_HOST MBOX=$MBOX"
+# ---------------------------------------------------------------------------
+# Resolve peer VPS hostnames for node bootstrapping.
+# All vpsN.fairco.in hosts are peers; exclude our own IP.
+# ---------------------------------------------------------------------------
+MY_IP=$(curl -sf --connect-timeout 2 http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address 2>/dev/null || true)
+PEER_IPS=""
+for peer_host in vps1.fairco.in vps2.fairco.in; do
+  peer_ip=$(dig +short "$peer_host" A 2>/dev/null | head -1)
+  if [[ -n "$peer_ip" && "$peer_ip" != "$MY_IP" ]]; then
+    PEER_IPS="${PEER_IPS:+$PEER_IPS,}$peer_ip"
+    log "Discovered peer: $peer_host -> $peer_ip"
+  fi
+done
+
+log "Configuration: SEED_HOST=$SEED_HOST NS_HOST=$NS_HOST MBOX=$MBOX PEERS=$PEER_IPS"
 
 # ---------------------------------------------------------------------------
 # Free port 53 (systemd-resolved stub listener conflicts with dnsseed)
@@ -134,6 +148,7 @@ MBOX=$MBOX
 RPC_PORT=${RPC_PORT:-40405}
 RPC_USER=${RPC_USER:-fair}
 RPC_PASS=${RPC_PASS:-change_me}
+PEER_IPS=$PEER_IPS
 REPO_BRANCH=$REPO_BRANCH
 INSTALL_DIR=$INSTALL_DIR
 EOF

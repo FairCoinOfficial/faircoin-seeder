@@ -6,6 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        bash \
         ca-certificates \
         curl \
         jq \
@@ -20,7 +21,10 @@ RUN FAIRCOIN_VERSION=$(curl -fsSL https://api.github.com/repos/FairCoinOfficial/
     && ln -s /opt/faircoin/faircoin-cli /usr/local/bin/faircoin-cli \
     && faircoind --version | head -1
 
+COPY entrypoint-node.sh /usr/local/bin/entrypoint-node.sh
+RUN chmod +x /usr/local/bin/entrypoint-node.sh
+
 VOLUME /data
 EXPOSE 46372 40405
 
-ENTRYPOINT ["faircoind", "-datadir=/data", "-printtoconsole"]
+ENTRYPOINT ["/usr/local/bin/entrypoint-node.sh"]
