@@ -3,20 +3,22 @@
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV FAIRCOIN_VERSION=v3.0.3
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
+        jq \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /data /opt/faircoin
 
-RUN curl -fsSL "https://github.com/FairCoinOfficial/FairCoin/releases/download/${FAIRCOIN_VERSION}/faircoin-${FAIRCOIN_VERSION}-linux-x86_64.tar.gz" \
-    | tar -xz -C /opt/faircoin --strip-components=1
-
-RUN ln -s /opt/faircoin/faircoind /usr/local/bin/faircoind \
-    && ln -s /opt/faircoin/faircoin-cli /usr/local/bin/faircoin-cli
+RUN FAIRCOIN_VERSION=$(curl -fsSL https://api.github.com/repos/FairCoinOfficial/FairCoin/releases/latest | jq -r '.tag_name') \
+    && echo "Installing FairCoin ${FAIRCOIN_VERSION}" \
+    && curl -fsSL "https://github.com/FairCoinOfficial/FairCoin/releases/download/${FAIRCOIN_VERSION}/faircoin-${FAIRCOIN_VERSION}-linux-x86_64.tar.gz" \
+    | tar -xz -C /opt/faircoin --strip-components=1 \
+    && ln -s /opt/faircoin/faircoind /usr/local/bin/faircoind \
+    && ln -s /opt/faircoin/faircoin-cli /usr/local/bin/faircoin-cli \
+    && faircoind --version | head -1
 
 VOLUME /data
 EXPOSE 46372 40405
