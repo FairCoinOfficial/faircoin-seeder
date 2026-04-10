@@ -11,11 +11,16 @@ services:
       - dnsseed-data:/var/lib/dnsseed
     command:
       - -h
-      - ${SEED_HOST}
+      - ${SEED_HOST:?SEED_HOST is required (e.g. seed1.fairco.in)}
       - -n
-      - ${NS_HOST}
+      - ${NS_HOST:?NS_HOST is required (e.g. vps1.fairco.in)}
       - -m
-      - ${MBOX}
+      - ${MBOX:-admin.fairco.in}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   dnsseed-data:

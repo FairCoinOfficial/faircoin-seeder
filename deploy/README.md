@@ -3,19 +3,36 @@
 The seeder is deployed as a Docker container (`docker-compose.yml` at the repo
 root). Each host runs one container serving a single seed hostname.
 
+## Zero-config on DigitalOcean
+
+Name your droplets `vps1.fairco.in` and `vps2.fairco.in`. The install script
+auto-detects `SEED_HOST` and `NS_HOST` from the droplet hostname via the
+DigitalOcean metadata API. No environment variables needed.
+
+```bash
+# SSH into the droplet and run:
+sudo bash deploy/install.sh
+```
+
+That's it. The script will:
+1. Stop `systemd-resolved` to free port 53
+2. Open firewall ports 53 (DNS) and 46372 (FairCoin P2P)
+3. Install Docker if missing
+4. Clone the repo and write `.env`
+5. Build and start the seeder container
+6. Install a cron job that auto-updates from `main` every 5 minutes
+
 ## Layout
 
-- `install.sh` – idempotent bootstrap script. Installs Docker if missing,
-  frees port 53 (stops `systemd-resolved`), clones this repo, writes
-  `.env`, builds and starts the container, and installs a cron job that
-  polls `main` for new commits every 5 minutes.
-- `update.sh` – polled by cron; `git reset --hard` to `origin/main` and
+- `install.sh` -- idempotent bootstrap script with auto-detection.
+- `update.sh` -- polled by cron; `git reset --hard` to `origin/main` and
   rebuild when a new commit is detected.
-- `cloud-init.yml.tpl` – cloud-init user-data template used when
-  provisioning a DigitalOcean droplet. Placeholders (`{{HOSTNAME}}`, …)
-  are filled in by the caller.
+- `cloud-init.yml.tpl` -- cloud-init user-data template for provisioning
+  new DigitalOcean droplets. Only `{{HOSTNAME}}` needs to be filled in.
 
 ## Environment variables (`.env`)
+
+All are auto-detected on DigitalOcean. Override with env vars if needed.
 
 | Variable      | Example              | Purpose                                    |
 |---------------|----------------------|--------------------------------------------|
@@ -23,27 +40,27 @@ root). Each host runs one container serving a single seed hostname.
 | `NS_HOST`     | `vps1.fairco.in`     | Nameserver hostname reported in SOA records |
 | `MBOX`        | `admin.fairco.in`    | Contact mailbox reported in SOA records     |
 
-## DNS (must be configured externally, e.g. Cloudflare)
+## DNS configuration (Cloudflare)
 
-For each host:
+The `fairco.in` domain is managed in Cloudflare. Required records:
 
 ```
-vps1.fairco.in.   A   <public ipv4 of droplet 1>
-vps2.fairco.in.   A   <public ipv4 of droplet 2>
+vps1.fairco.in.   A   167.71.2.184       (DNS only, no proxy)
+vps2.fairco.in.   A   104.248.196.16     (DNS only, no proxy)
 
 seed1.fairco.in.  NS  vps1.fairco.in.
 seed2.fairco.in.  NS  vps2.fairco.in.
 ```
 
-The `NS` delegation is what makes DNS clients contact the `dnsseed`
-process running on the droplet when they resolve `seedN.fairco.in`.
+The `NS` delegation makes DNS clients contact the `dnsseed` process on the
+droplet when they resolve `seedN.fairco.in`. Cloudflare proxy must be OFF
+for these records (grey cloud / DNS only).
 
-## Manual install on an existing host
+## Manual install on a non-DO host
 
 ```bash
 sudo SEED_HOST=seed1.fairco.in \
      NS_HOST=vps1.fairco.in \
-     MBOX=admin.fairco.in \
      bash deploy/install.sh
 ```
 

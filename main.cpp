@@ -85,7 +85,7 @@ public:
         {"minheight", required_argument, 0, 'x'},
         {"testnet", no_argument, &fUseTestNet, 1},
         {"wipeban", no_argument, &fWipeBan, 1},
-        {"wipeignore", no_argument, &fWipeBan, 1},
+        {"wipeignore", no_argument, &fWipeIgnore, 1},
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
       };
