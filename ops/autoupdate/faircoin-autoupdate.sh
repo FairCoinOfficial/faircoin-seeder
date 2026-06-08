@@ -58,6 +58,7 @@ gh_api() { curl -fsSL -H 'Accept: application/vnd.github+json' "https://api.gith
 # Normalize a version to MAJOR.MINOR.REVISION for comparison: the daemon reports
 # a 4-part build (v3.0.5.0-<hash>) while release tags are 3-part (v3.0.5).
 normver() { echo "${1#v}" | awk -F'[.-]' '{printf "%s.%s.%s", $1+0, $2+0, $3+0}'; }
+same_version() { [ "$(normver "$1")" = "$(normver "$2")" ]; }
 
 # Resolve the target release: pinned, or the newest release older than the age guard.
 resolve_target() {
@@ -93,7 +94,7 @@ canary_ok() { # producers: is the canary already serving the target?
   # to be in the JSON. Fall back to a v-prefixed version string.
   seen="$(grep -oE 'Core:[0-9]+\.[0-9]+\.[0-9]+' <<<"$resp" | head -1 | cut -d: -f2)"
   [ -n "$seen" ] || seen="$(grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' <<<"$resp" | head -1)"
-  if [ -n "$seen" ] && [ "$(normver "$seen")" = "$(normver "$TARGET")" ]; then return 0; fi
+  if [ -n "$seen" ] && same_version "$seen" "$TARGET"; then return 0; fi
   log "canary ($CANARY_URL) reports '${seen:-none}', target is $TARGET; producer holds until canary updates"
   return 1
 }
@@ -103,9 +104,9 @@ health_check() { # RPC answers and the tip is advancing
   before="$(rpc "$port" getblockcount '[]' | jq -r '.result // empty' 2>/dev/null || true)"
   [ -n "$before" ] || { log "health: RPC not responding after update"; return 1; }
   for i in $(seq 1 12); do
-    sleep 10
     after="$(rpc "$port" getblockcount '[]' | jq -r '.result // empty' 2>/dev/null || true)"
     [ -n "$after" ] && [ "$after" -gt "$before" ] && { log "health: tip advanced $before -> $after"; return 0; }
+    sleep 10
   done
   log "health: tip did not advance from $before within ~2m (still syncing?)"
   return 0   # not fatal: mnsync/IBD can take minutes; node is up if RPC answered
@@ -137,7 +138,7 @@ log "node type=$NODE_TYPE role=$ROLE rpc_port=$RPC_PORT"
 TARGET="$(resolve_target)" || exit 0
 CURRENT="$(running_version || true)"
 log "current=${CURRENT:-unknown} target=$TARGET"
-if [ "$(normver "$CURRENT")" = "$(normver "$TARGET")" ]; then log "already on $TARGET; nothing to do"; exit 0; fi
+if same_version "$CURRENT" "$TARGET"; then log "already on $TARGET; nothing to do"; exit 0; fi
 canary_ok || exit 0
 
 # ---- apply ------------------------------------------------------------------

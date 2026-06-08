@@ -3,6 +3,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.node
+      args:
+        # Pin a release for coordinated/consensus rollouts; empty => latest.
+        # One source of truth for every build path (manual or auto-updater).
+        FAIRCOIN_VERSION: ${FAIRCOIN_VERSION:-}
     image: faircoin-node:latest
     container_name: faircoin-node
     restart: unless-stopped
