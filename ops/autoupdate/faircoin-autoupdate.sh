@@ -87,8 +87,12 @@ running_version() { # prints the running daemon version tag, best-effort
 canary_ok() { # producers: is the canary already serving the target?
   [ "$ROLE" != producer ] && return 0
   [ -z "$CANARY_URL" ] && { log "ROLE=producer but no CANARY_URL set; refusing to switch"; return 1; }
-  local seen
-  seen="$(curl -fsSL --max-time 15 "$CANARY_URL" 2>/dev/null | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)"
+  local resp seen
+  resp="$(curl -fsSL --max-time 15 "$CANARY_URL" 2>/dev/null || true)"
+  # Prefer the daemon's "Core:X.Y.Z" subversion marker; never an IP that happens
+  # to be in the JSON. Fall back to a v-prefixed version string.
+  seen="$(grep -oE 'Core:[0-9]+\.[0-9]+\.[0-9]+' <<<"$resp" | head -1 | cut -d: -f2)"
+  [ -n "$seen" ] || seen="$(grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' <<<"$resp" | head -1)"
   if [ -n "$seen" ] && [ "$(normver "$seen")" = "$(normver "$TARGET")" ]; then return 0; fi
   log "canary ($CANARY_URL) reports '${seen:-none}', target is $TARGET; producer holds until canary updates"
   return 1
