@@ -55,6 +55,10 @@ need curl; need jq
 
 gh_api() { curl -fsSL -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$REPO/$1"; }
 
+# Normalize a version to MAJOR.MINOR.REVISION for comparison: the daemon reports
+# a 4-part build (v3.0.5.0-<hash>) while release tags are 3-part (v3.0.5).
+normver() { echo "${1#v}" | awk -F'[.-]' '{printf "%s.%s.%s", $1+0, $2+0, $3+0}'; }
+
 # Resolve the target release: pinned, or the newest release older than the age guard.
 resolve_target() {
   if [ -n "$PINNED_VERSION" ]; then echo "$PINNED_VERSION"; return; fi
@@ -85,7 +89,7 @@ canary_ok() { # producers: is the canary already serving the target?
   [ -z "$CANARY_URL" ] && { log "ROLE=producer but no CANARY_URL set; refusing to switch"; return 1; }
   local seen
   seen="$(curl -fsSL --max-time 15 "$CANARY_URL" 2>/dev/null | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)"
-  if [ "${seen#v}" = "${TARGET#v}" ]; then return 0; fi
+  if [ -n "$seen" ] && [ "$(normver "$seen")" = "$(normver "$TARGET")" ]; then return 0; fi
   log "canary ($CANARY_URL) reports '${seen:-none}', target is $TARGET; producer holds until canary updates"
   return 1
 }
@@ -129,7 +133,7 @@ log "node type=$NODE_TYPE role=$ROLE rpc_port=$RPC_PORT"
 TARGET="$(resolve_target)" || exit 0
 CURRENT="$(running_version || true)"
 log "current=${CURRENT:-unknown} target=$TARGET"
-if [ "${CURRENT#v}" = "${TARGET#v}" ]; then log "already on $TARGET; nothing to do"; exit 0; fi
+if [ "$(normver "$CURRENT")" = "$(normver "$TARGET")" ]; then log "already on $TARGET; nothing to do"; exit 0; fi
 canary_ok || exit 0
 
 # ---- apply ------------------------------------------------------------------
