@@ -1,0 +1,12 @@
+[Unit]
+Description=FairCoin node auto-update (canary/age-gated)
+After=network-online.target faircoind.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Per-node settings live here; see ops/autoupdate/README.md.
+EnvironmentFile=-/etc/faircoin-autoupdate.env
+ExecStart=/usr/local/bin/faircoin-autoupdate.sh
+# Never let an update hang forever.
+TimeoutStartSec=900

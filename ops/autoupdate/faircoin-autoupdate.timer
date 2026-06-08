@@ -1,0 +1,13 @@
+[Unit]
+Description=Run FairCoin node auto-update periodically
+
+[Timer]
+# Check every 15 min so the network converges quickly on an approved release,
+# with a randomized delay so nodes don't all hit GitHub at the same instant.
+OnBootSec=5min
+OnUnitActiveSec=15min
+RandomizedDelaySec=120
+Persistent=true
+
+[Install]
+WantedBy=timers.target
