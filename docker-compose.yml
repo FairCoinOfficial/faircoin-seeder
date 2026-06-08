@@ -18,8 +18,12 @@ services:
       - -rpcallowip=0.0.0.0/0
       - -rpcport=${RPC_PORT:-40405}
       - -rpcuser=${RPC_USER:-fair}
-      - -rpcpassword=${RPC_PASS:-change_me}
+      # Fail closed: never start the node with the placeholder password.
+      - -rpcpassword=${RPC_PASS:?RPC_PASS is required (set a strong value in .env)}
       - -maxconnections=64
+      # Treat the long-running chain tip as current so a node that was offline
+      # does not trap itself in initial-block-download (FairCoin IBD self-deadlock).
+      - -maxtipage=315360000
     logging:
       driver: json-file
       options:
