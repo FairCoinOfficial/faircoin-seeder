@@ -34,27 +34,29 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Isolated FairCoin TESTNET node. Runs beside the mainnet daemon on the same
-  # host but is a COMPLETELY SEPARATE chain: its own genesis, network magic,
-  # P2P port (46374) and data volume. Reuses the same image and RPC creds, only
-  # on a distinct RPC port (40406) so the Explorer can read it via
-  # FAIRCOIN_TESTNET_RPC_*. Never shares state with mainnet.
+  # === FairCoin TESTNET (a COMPLETELY SEPARATE chain) ===
+  # Two testnet nodes run beside the mainnet daemon: separate genesis, network
+  # magic, ports and data volumes. They use a CUSTOM binary (v3.0.5-testnet1)
+  # whose block-1 premine is mainnet-only, so a fresh testnet chain can be mined
+  # (the stock binary's miner pays the 5M premine but consensus rejects it). The
+  # custom image is tagged distinctly so it can never overwrite mainnet's
+  # faircoin-node:latest. PoS staking requires >=1 peer (the staker sleeps while
+  # vNodes is empty), so the two nodes peer with each other over localhost.
+
+  # Primary testnet node — mines the PoW phase, stakes, and is the RPC the
+  # Explorer reads (FAIRCOIN_TESTNET_RPC_* -> vps1:40406).
   faircoind-testnet:
     build:
       context: .
       dockerfile: Dockerfile.node
       args:
-        FAIRCOIN_VERSION: ${FAIRCOIN_VERSION:-}
-    image: faircoin-node:latest
+        FAIRCOIN_VERSION: v3.0.5-testnet1
+    image: faircoin-testnet-node:v3.0.5-testnet1
     container_name: faircoin-node-testnet
     restart: unless-stopped
     network_mode: host
-    # No peers: this is the sole testnet node, so it must not dial the mainnet
-    # PEER_IPS. Explicitly blank so the entrypoint adds no -addnode flags.
     environment:
       - PEER_IPS=
-    # Cap memory so a testnet hiccup can never starve the mainnet daemon on the
-    # shared host; the kernel kills only this container if it exceeds the limit.
     mem_limit: 768m
     volumes:
       - faircoin-testnet-data:/data
@@ -70,6 +72,44 @@ services:
       - -rpcpassword=${RPC_PASS:?RPC_PASS is required (set a strong value in .env)}
       - -maxconnections=64
       - -maxtipage=315360000
+      # Peer with the companion so PoS staking can activate (needs >=1 connection).
+      - -addnode=127.0.0.1:46378
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Companion testnet node — exists only to give the primary a peer connection so
+  # PoS can stake. No external exposure: RPC bound to localhost, P2P on 46378.
+  faircoind-testnet-peer:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+      args:
+        FAIRCOIN_VERSION: v3.0.5-testnet1
+    image: faircoin-testnet-node:v3.0.5-testnet1
+    container_name: faircoin-node-testnet-peer
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - PEER_IPS=
+    mem_limit: 512m
+    volumes:
+      - faircoin-testnet-peer-data:/data
+    command:
+      - -testnet
+      - -listen=1
+      - -server=1
+      - -rpcbind=127.0.0.1
+      - -rpcallowip=127.0.0.1
+      - -rpcport=40407
+      - -rpcuser=${RPC_USER:-fair}
+      - -rpcpassword=${RPC_PASS:?RPC_PASS is required (set a strong value in .env)}
+      - -port=46378
+      - -maxconnections=64
+      - -maxtipage=315360000
+      - -addnode=127.0.0.1:46374
     logging:
       driver: json-file
       options:
@@ -107,4 +147,5 @@ services:
 volumes:
   faircoin-data:
   faircoin-testnet-data:
+  faircoin-testnet-peer-data:
   dnsseed-data:
