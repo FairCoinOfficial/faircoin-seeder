@@ -34,7 +34,6 @@ services:
       - -addressindex=1
       - -txindex=1
       - -spentindex=1
-      - -reindex
     logging:
       driver: json-file
       options:
