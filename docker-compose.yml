@@ -36,7 +36,7 @@ services:
 
   # === FairCoin TESTNET (a COMPLETELY SEPARATE chain) ===
   # Two testnet nodes run beside the mainnet daemon: separate genesis, network
-  # magic, ports and data volumes. They use a CUSTOM binary (v3.0.5-testnet3)
+  # magic, ports and data volumes. They use a CUSTOM binary (v3.0.5-testnet4)
   # whose block-1 premine is mainnet-only, so a fresh testnet chain can be mined
   # (the stock binary's miner pays the 5M premine but consensus rejects it). The
   # custom image is tagged distinctly so it can never overwrite mainnet's
@@ -50,8 +50,8 @@ services:
       context: .
       dockerfile: Dockerfile.node
       args:
-        FAIRCOIN_VERSION: v3.0.5-testnet3
-    image: faircoin-testnet-node:v3.0.5-testnet3
+        FAIRCOIN_VERSION: v3.0.5-testnet4
+    image: faircoin-testnet-node:v3.0.5-testnet4
     container_name: faircoin-node-testnet
     restart: unless-stopped
     network_mode: host
@@ -93,8 +93,8 @@ services:
       context: .
       dockerfile: Dockerfile.node
       args:
-        FAIRCOIN_VERSION: v3.0.5-testnet3
-    image: faircoin-testnet-node:v3.0.5-testnet3
+        FAIRCOIN_VERSION: v3.0.5-testnet4
+    image: faircoin-testnet-node:v3.0.5-testnet4
     container_name: faircoin-node-testnet-peer
     restart: unless-stopped
     network_mode: host
