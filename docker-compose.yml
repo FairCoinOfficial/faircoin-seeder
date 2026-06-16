@@ -6,7 +6,7 @@ services:
       args:
         # Pin a release for coordinated/consensus rollouts; empty => latest.
         # One source of truth for every build path (manual or auto-updater).
-        FAIRCOIN_VERSION: ${FAIRCOIN_VERSION:-}
+        FAIRCOIN_VERSION: v3.0.6
     image: faircoin-node:latest
     container_name: faircoin-node
     restart: unless-stopped
@@ -28,6 +28,13 @@ services:
       # Treat the long-running chain tip as current so a node that was offline
       # does not trap itself in initial-block-download (FairCoin IBD self-deadlock).
       - -maxtipage=315360000
+      # Address/tx indexes (added in v3.0.6) so the explorer's address pages and the
+      # MCP wallet tools work on mainnet. -reindex is required ONCE to build the index
+      # over existing blocks; removed in a follow-up after the first successful reindex.
+      - -addressindex=1
+      - -txindex=1
+      - -spentindex=1
+      - -reindex
     logging:
       driver: json-file
       options:
