@@ -190,6 +190,27 @@ def parse_nodes(spec: str):
     return nodes
 
 
+def classify_chain_answer(hashes, ref_next: str, genesis_next: str) -> str:
+    """
+    Interpret a getblocks reply to the locator [our block at height H].
+
+    The reply can share an inv message with blocks the peer is relaying (a node
+    that is syncing announces what it just connected), so position is not
+    meaningful — only membership is:
+
+      * our H+1 is listed           -> the peer's active chain contains H: "same";
+      * block 1 is listed           -> the peer fell back to genesis, i.e. H is not
+                                       on its active chain: "fork" (unambiguous);
+      * neither                     -> "unknown" (ask again next run).
+    """
+    listed = set(hashes)
+    if ref_next in listed:
+        return "same"
+    if genesis_next in listed:
+        return "fork"
+    return "unknown"
+
+
 def run_checks(nodes):
     """Return (problems: dict key->text, summary: list of lines)."""
     problems = {}
@@ -229,17 +250,17 @@ def run_checks(nodes):
         line = f"{name}: height {peer.height} ({peer.user_agent})"
         if ref_hash and check_height > 1:
             try:
-                after = peer.blocks_after(ref_hash)
-                if after[0] == ref_next:
+                verdict = classify_chain_answer(peer.blocks_after(ref_hash), ref_next, genesis_next)
+                if verdict == "same":
                     line += f", same chain at {check_height}"
-                else:
-                    reason = ("does not have our block" if after[0] == genesis_next
-                              else "follows a different block")
+                elif verdict == "fork":
                     problems[f"{name}:fork"] = (
-                        f"{name} is on a DIFFERENT CHAIN: at height {check_height} it "
-                        f"{reason}. Stop staking on it and resync before the split "
-                        f"is {100} blocks deep (then it can never reorg back).")
+                        f"{name} is on a DIFFERENT CHAIN: its active chain does not contain "
+                        f"our block at height {check_height}. Stop staking on it and resync "
+                        f"before the split is 100 blocks deep (then it can never reorg back).")
                     line += ", DIFFERENT CHAIN"
+                else:
+                    line += ", chain answer inconclusive"
             except Exception as exc:  # noqa: BLE001
                 problems[f"{name}:query"] = f"{name} did not answer a chain query: {exc}"
         if lag > LAG_BLOCKS:
@@ -297,11 +318,14 @@ def main() -> int:
     state = load_state()
     now = int(time.time())
 
-    # Lag must persist across two runs before it counts (propagation is not an outage).
-    lag_keys = {k for k in problems if k.endswith(":lag")}
+    # Lag and splits must persist across two runs (5 min apart) before they count:
+    # propagation is not an outage, and a false split alarm teaches people to
+    # ignore the real one. Ten minutes is still far inside the 100-block limit.
+    persistent = (":lag", ":fork", ":query")
+    pending = {k for k in problems if k.endswith(persistent)}
     confirmed = {k: v for k, v in problems.items()
-                 if not k.endswith(":lag") or k in state.get("lag_seen", {})}
-    state["lag_seen"] = {k: now for k in lag_keys}
+                 if not k.endswith(persistent) or k in state.get("lag_seen", {})}
+    state["lag_seen"] = {k: now for k in pending}
 
     active = state.get("active", {})
     host = socket.gethostname()
