@@ -1,0 +1,13 @@
+[Unit]
+Description=FairCoin network monitor (split / stall / down detection)
+Documentation=file:/usr/local/bin/faircoin-monitor
+After=network-online.target faircoind.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/faircoin-monitor.env
+ExecStart=/usr/bin/python3 /usr/local/bin/faircoin-monitor
+# Exit 1 = problems found (already alerted); not a unit failure.
+SuccessExitStatus=1
+TimeoutStartSec=240
+Nice=10
